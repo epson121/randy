@@ -1,0 +1,24 @@
+.vscode
+randy/vendor
+randy/.phpunit.cache
+randy/.phpunit.result.cache
+
+###> symfony/framework-bundle ###
+randy/.env.local
+randy/.env.local.php
+randy/.env.*.local
+randy/config/secrets/prod/prod.decrypt.private.php
+randy/public/bundles/
+randy/var/
+randy/vendor/
+###< symfony/framework-bundle ###
+
+###> phpunit/phpunit ###
+randy/phpunit.xml
+randy/.phpunit.result.cache
+###< phpunit/phpunit ###
+
+###> symfony/phpunit-bridge ###
+randy/.phpunit.result.cache
+randy/phpunit.xml
+###< symfony/phpunit-bridge ###
