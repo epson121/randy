@@ -11,6 +11,7 @@ randy/config/secrets/prod/prod.decrypt.private.php
 randy/public/bundles/
 randy/var/
 randy/vendor/
+randy/*.pem
 ###< symfony/framework-bundle ###
 
 ###> phpunit/phpunit ###
