@@ -25,6 +25,8 @@ class Chat implements MessageComponentInterface {
 
     public function onOpen(ConnectionInterface $conn) {
         $this->logger->info("New Connection! ({$conn->resourceId})");
+        $roomNames = array_keys($this->rooms);
+        $conn->send(json_encode(['rooms' => $roomNames]));
     }
 
     public function onMessage(ConnectionInterface $from, $msg) {
@@ -38,7 +40,7 @@ class Chat implements MessageComponentInterface {
                     $roomId = $this->makeRoom($msg['roomId']);
                     $client = $this->createClient($from, $msg['userName']);
 
-                    $this->logger->info("User connected to room $roomId");
+                    $this->logger->info("{$client->getName()} connected to room $roomId");
                     
                     $this->connectUserToRoom($client, $roomId);
                     $this->sendUserConnectedMessage($client, $roomId);
@@ -121,10 +123,12 @@ class Chat implements MessageComponentInterface {
      */
     protected function makeRoom($roomId)
     {
+        $this->logger->info("Creating a room {$roomId}");
         if (!isset($this->rooms[$roomId])) {
+            $this->logger->info('Room does not exist');
             $this->rooms[$roomId] = [];
         }
-
+        
         return $roomId;
     }
 
@@ -138,12 +142,29 @@ class Chat implements MessageComponentInterface {
         $dataPacket = array(
             'type'=> 'connected',
             'timestamp'=>time(),
-            'message'=> "Welcome $name"
+            'message'=> "Welcome $name",
+            'name' => $name
         );
 
         $clients = $this->findRoomClients($roomId);
         unset($clients[$client->getResourceId()]);
         $this->sendDataToClients($clients, $dataPacket);
+
+        // send list of users in a room, when connected
+        $usernames = [];
+        foreach ($clients as $c) {
+            $usernames[] = $c->getName();
+        }
+
+        $usersInRoom = [
+            'type' => 'users',
+            'timestamp' => time(),
+            'users' => $usernames
+        ];
+
+        $this->logger->info(json_encode($usersInRoom));
+
+        $client->getConnection()->send(json_encode($usersInRoom));
     }
 
     /**

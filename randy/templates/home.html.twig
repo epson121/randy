@@ -5,3 +5,12 @@
         <app></app> 
     </div>
 {% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+
+    <script type="text/javascript">
+        window.config = window.config ?? {};
+        window.config.wss_base_url = "{{wss_base_url}}";
+    </script>
+{% endblock %}

@@ -6,6 +6,7 @@
 parameters:
     ssl_key_path: '/var/www/html/key.pem'
     ssl_cert_path: '/var/www/html/cert.pem'
+    wss_base_url: 'wss://app.randy.test:8080'
 
 services:
     # default configuration for services in *this* file
@@ -15,6 +16,7 @@ services:
         bind:
             $sslKeyPath: '%ssl_key_path%'
             $sslCertPath: '%ssl_cert_path%'
+            $wssBaseUrl: '%wss_base_url%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name
