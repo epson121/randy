@@ -2,7 +2,7 @@
 
 namespace App\Command;
 
-use App\Chat;
+use App\Service\Chat;
 use Ratchet\Http\HttpServer;
 use Ratchet\Server\IoServer;
 use Ratchet\WebSocket\WsServer;
