@@ -5,28 +5,31 @@ use App\Entity\ConnectedClient;
 use Ratchet\ConnectionInterface;
 use Ratchet\MessageComponentInterface;
 use App\Api\Data\ConnectedClientInterface;
+use Psr\Log\LoggerInterface;
 
 class Chat implements MessageComponentInterface {
     
     const ACTION_USER_CONNECTED = 'connect';
     const ACTION_MESSAGE_RECEIVED = 'message';
 
-    protected $clients;
+    private $clients;
+    private $rooms;    
 
-    private $rooms;
-
-    public function __construct() {
+    /**
+     * 
+     */
+    public function __construct(private LoggerInterface $logger) {
         $this->clients = [];
         $this->rooms = [];
     }
 
     public function onOpen(ConnectionInterface $conn) {
-        echo "New connection! ({$conn->resourceId})\n";
+        $this->logger->info("New Connection! ({$conn->resourceId})");
     }
 
     public function onMessage(ConnectionInterface $from, $msg) {
         
-        echo "New message received: $msg";
+        $this->logger->info("New message received: $msg");
         $msg = json_decode($msg, true);
         
         try {
@@ -34,7 +37,9 @@ class Chat implements MessageComponentInterface {
                 case self::ACTION_USER_CONNECTED:
                     $roomId = $this->makeRoom($msg['roomId']);
                     $client = $this->createClient($from, $msg['userName']);
-                    echo "User connected to $roomId";
+
+                    $this->logger->info("User connected to room $roomId");
+                    
                     $this->connectUserToRoom($client, $roomId);
                     $this->sendUserConnectedMessage($client, $roomId);
                     break;
@@ -46,17 +51,18 @@ class Chat implements MessageComponentInterface {
                     break;
             }
         } catch (\Exception $e) {
-            echo "Exception: $e";
+            $this->logger->error($e->getMessage());
+            $this->logger->error($e->getTraceAsString());
         }
         
     }
 
     public function onClose(ConnectionInterface $conn) {
-        echo "Connection {$conn->resourceId} has disconnected\n";
+        $this->logger->info("Connection {$conn->resourceId} has disonnected");
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e) {
-        echo "An error has occurred: {$e->getMessage()}\n";
+        $this->logger->error("An error has occurred: {$e->getMessage()}");
         $conn->close();
     }
 

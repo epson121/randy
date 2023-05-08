@@ -1,6 +1,13 @@
 monolog:
     channels:
         - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
+        - chat_server
+    handlers:
+        chat_server:
+            level:    debug
+            type:     stream
+            path:     '%kernel.logs_dir%/chat-server.log'
+            channels: chat_server
 
 when@dev:
     monolog:
