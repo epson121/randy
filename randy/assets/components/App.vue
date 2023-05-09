@@ -2,15 +2,29 @@
     <div>
         <div>{{ title }}</div>
 
-        <div v-if="joinedRoom === false">
+        <div v-if="!userAuthenticated">
             <label for="username">Username</label>
             <input type="text" name="username" v-model="username">
-            <label for="roomId">Room</label>
+            <button @click="connectUser">Connect</button>
+        </div>
+
+        <div v-if="userAuthenticated">
+            <p >Available rooms:</p>
+            <ul id="rooms" v-if="rooms.length">
+                <li v-for="room in rooms">
+                {{ room }}
+                </li>
+            </ul>
+            <p v-else>No rooms available at the moment.</p>
+        </div>
+
+        <div v-if="userAuthenticated">
+            <label for="roomId">Create a new room, or join an existing one:</label>
             <input type="text" name="roomId" v-model="roomId">
             <button @click="joinRoom">Join</button>
         </div>
 
-        <div v-if="joinedRoom === true">
+        <div v-if="joinedRoom">
             <div id='content'></div>
             
             
@@ -23,22 +37,15 @@
                 </p>
             </form>
         </div>
-        <div>
-            <p>Available rooms:</p>
-            <ul id="rooms">
-                <li v-for="room in rooms">
-                {{ room }}
-                </li>
-            </ul>
-        </div>
 
-        <div v-if="joinedRoom === true">
+        <div v-if="joinedRoom">
             <p>Users in room:</p>
-            <ul id="rooms">
+            <ul id="rooms" v-if="usersInRoom.length">
                 <li v-for="user in usersInRoom">
                 {{ user }}
                 </li>
             </ul>
+            <p v-else>Room is empty</p>
         </div>
 
     </div>
@@ -52,12 +59,13 @@
                 title: "Welcome to the chat",
                 message: "",
                 wss_base_url: window.config.wss_base_url,
+                userAuthenticated: false,
                 conn: null,
                 username: null,
                 roomId: null,
                 rooms: [],
                 usersInRoom: [],
-                joinedRoom: false
+                joinedRoom: null
             }
         },
         mounted() {
@@ -79,8 +87,18 @@
                     console.log(e.data);
                     var data = JSON.parse(e.data);
                     console.log(data);
+
                     if (data.hasOwnProperty('rooms')) {
                         self.rooms = data.rooms;
+                    }
+
+                    if (data.hasOwnProperty('type') && data.type == 'userlist') {
+                        self.usersInRoom = data.users;
+                    }
+
+                    if (data.hasOwnProperty('type') && data.type == 'username_exists') {
+                        self.username = data.username;
+                        alert("Username is already taken, your new username is " + self.username);
                     }
 
                     if (data.hasOwnProperty('message') && data.hasOwnProperty('from')) {
@@ -98,6 +116,29 @@
                         self.usersInRoom = self.usersInRoom.concat(data.users);
                     }
                 };
+
+                this.conn.onclose = function(e) {
+                    self.username = "";
+                    self.userAuthenticated = false;
+                    self.rooms = [];
+                    self.roomId = null;
+                    self.usersInRoom = [];
+                    self.joinedRoom = null;
+                }
+            },
+            connectUser: function() {
+                if (!this.username) {
+                    return;
+                }
+
+                var d = new Date();
+                var params = {
+                    'username': this.username,
+                    'action': 'user_auth'
+                };
+                console.log(params);
+                this.conn.send(JSON.stringify(params));
+                this.userAuthenticated = true;
             },
             joinRoom: function() {
                 if (!this.username || !this.roomId) {
@@ -108,13 +149,12 @@
                 var d = new Date();
                 var params = {
                     'roomId': this.roomId,
-                    'userName': this.username,
-                    'action': 'connect'
+                    'action': 'connect',
+                    'oldRoomId': this.joinedRoom
                 };
                 console.log(params);
                 this.conn.send(JSON.stringify(params));
-                this.joinedRoom = true;
-                this.usersInRoom.push(this.username);
+                this.joinedRoom = this.roomId;
             },
             sendChatMessage: function () {
                 if (!this.message) {

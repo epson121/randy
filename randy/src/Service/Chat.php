@@ -9,7 +9,9 @@ use Psr\Log\LoggerInterface;
 
 class Chat implements MessageComponentInterface {
     
+    const ACTION_USERNAME_AUTH = 'user_auth';
     const ACTION_USER_CONNECTED = 'connect';
+    const ACTION_USER_JOINED_ROOM = 'joined';
     const ACTION_MESSAGE_RECEIVED = 'message';
 
     private $clients;
@@ -25,8 +27,8 @@ class Chat implements MessageComponentInterface {
 
     public function onOpen(ConnectionInterface $conn) {
         $this->logger->info("New Connection! ({$conn->resourceId})");
-        $roomNames = array_keys($this->rooms);
-        $conn->send(json_encode(['rooms' => $roomNames]));
+        // $roomNames = array_keys($this->rooms);
+        // $conn->send(json_encode(['rooms' => $roomNames]));
     }
 
     public function onMessage(ConnectionInterface $from, $msg) {
@@ -36,14 +38,32 @@ class Chat implements MessageComponentInterface {
         
         try {
             switch ($msg['action']) {
+                case self::ACTION_USERNAME_AUTH:
+                    $client = $this->createClient($from, $msg['username']);
+                    $this->sendRoomList($client);
+                    break;
                 case self::ACTION_USER_CONNECTED:
                     $roomId = $this->makeRoom($msg['roomId']);
-                    $client = $this->createClient($from, $msg['userName']);
+                    $client = $this->getClientByResourceId($from->resourceId);
+                    
+                    if (!$client) {
+                        // do something
+                        $this->logger->info("Client does not exist");
+                        $from->close();
+                        break;
+                    }
 
                     $this->logger->info("{$client->getName()} connected to room $roomId");
-                    
                     $this->connectUserToRoom($client, $roomId);
                     $this->sendUserConnectedMessage($client, $roomId);
+                    $this->sendRoomUpdates();
+                    $this->sendUserUpdates($roomId);
+                    
+                    if (isset($msg['oldRoomId'])) {
+                        unset($this->rooms[$msg['oldRoomId']][$client->getResourceId()]);
+                        $this->sendUserUpdates($msg['oldRoomId'], true);
+                        // send user left message?
+                    }
                     break;
                 case self::ACTION_MESSAGE_RECEIVED:
                     $client = $this->findClient($from);
@@ -61,6 +81,37 @@ class Chat implements MessageComponentInterface {
 
     public function onClose(ConnectionInterface $conn) {
         $this->logger->info("Connection {$conn->resourceId} has disonnected");
+        
+        foreach($this->clients as $k => $client) {
+            if ($client->getResourceId() == $conn->resourceId) {
+                unset($this->clients[$k]);
+            }
+        }
+    }
+
+    private function sendRoomUpdates() {
+        $roomNames = array_keys($this->rooms);
+
+        $dataPacket = [
+            'rooms' => $roomNames
+        ];
+
+        $this->sendDataToClients($this->clients, $dataPacket);
+    }
+
+    private function sendUserUpdates($roomId, $clean = false) {
+        $clients = $this->rooms[$roomId];
+        $clientList = [];
+        foreach ($clients as $k => $client) {
+            $clientList[] = $client->getName();
+        }
+
+        $dataPacket = [
+            'type' => 'userlist',
+            'users' => $clientList
+        ];
+
+        $this->sendDataToClients($clients, $dataPacket);
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e) {
@@ -81,6 +132,26 @@ class Chat implements MessageComponentInterface {
         throw new \Exception($conn->resourceId);
     }
 
+    protected function getClientByUsername($username) {
+        foreach($this->clients as $client) {
+            if ($client->getName() == $username) {
+                return $client;
+            }
+        }
+
+        return false;
+    }
+
+    private function getClientByResourceId($resourceId) {
+        foreach($this->clients as $client) {
+            if ($client->getResourceId() == $resourceId) {
+                return $client;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @param ConnectedClientInterface $client
      * @return int|string
@@ -98,12 +169,33 @@ class Chat implements MessageComponentInterface {
 
     protected function createClient(ConnectionInterface $conn, $name)
     {
+        $client = $this->getClientByUsername($name);
+
+        if ($client) {
+            // send user already exists
+            $bytes = random_bytes(4);
+            $name = $name . '_' . bin2hex($bytes); 
+            $this->sendUserExistsMessage($conn, $name);
+        }
+
         $client = new ConnectedClient();
         $client->setResourceId($conn->resourceId);
         $client->setConnection($conn);
         $client->setName($name);
 
+        $this->clients[$client->getResourceId()] = $client;
+
         return $client;
+    }
+
+    private function sendUserExistsMessage(ConnectionInterface $conn, $newUsername) {
+        $usersInRoom = [
+            'type' => 'username_exists',
+            'timestamp' => time(),
+            'username' => $newUsername
+        ];
+
+        return $conn->send(json_encode($usersInRoom));
     }
 
     /**
@@ -113,7 +205,6 @@ class Chat implements MessageComponentInterface {
     protected function connectUserToRoom(ConnectedClientInterface $client, $roomId)
     {
         $this->rooms[$roomId][$client->getResourceId()] = $client;
-        $this->clients[$client->getResourceId()] = $client;
     }
 
 
@@ -130,6 +221,11 @@ class Chat implements MessageComponentInterface {
         }
         
         return $roomId;
+    }
+
+    private function sendRoomList(ConnectedClientInterface $client) {
+        $roomNames = array_keys($this->rooms);
+        $client->getConnection()->send(json_encode(['rooms' => $roomNames]));
     }
 
     /**
