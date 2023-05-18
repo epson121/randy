@@ -1,0 +1,191 @@
+@charset "UTF-8";
+
+// Import a Google Font
+@import url('https://fonts.googleapis.com/css?family=Nunito:400,700');
+
+// Set your brand colors
+$marian-blue: #1e3888ff;
+$moonstone: #47a8bdff;
+$maize: #f5e663ff;
+$sandy-brown: #ffad69ff;
+$cordovan: #9c3848ff;
+$black: #000000;
+$white: #FFFFFF;
+$dark-gray: #444444;
+$notice: #EEEEEE;
+
+$font-size-large: 28px;
+$font-size-medium: 20px;
+$font-size-small: 12px;
+
+// Import only what you need from Bulma
+@import "~bulma/sass/utilities/_all.sass";
+@import "~bulma/sass/base/_all.sass";
+@import "~bulma/sass/grid/_all.sass";
+@import "~bulma/sass/elements/button.sass";
+@import "~bulma/sass/elements/container.sass";
+@import "~bulma/sass/elements/title.sass";
+@import "~bulma/sass/form/_all.sass";
+@import "~bulma/sass/components/navbar.sass";
+@import "~bulma/sass/layout/hero.sass";
+@import "~bulma/sass/layout/section.sass";
+
+html, body {
+    background: $maize;
+    height: 100vh;
+}
+
+.title {
+    font-size: $font-size-large;
+    color: $marian-blue;
+    margin: 30px;
+}
+
+.main {
+    margin-top: 20px;
+    border: 2px solid $moonstone;
+    border-radius: 30px;
+    background-color: $moonstone;
+}
+
+.login-block {
+
+    .username.label {
+        font-size: $font-size-large;
+        color: $marian-blue;
+    }
+
+    .username {
+        padding: 20px 0;
+    }
+
+    .username.input {
+        margin-bottom: 20px;
+
+        button {
+            background-color: $sandy-brown;
+        }
+    }
+
+    max-width: 50%;
+    text-align: center;
+    margin: auto;
+}
+
+.rooms-block {
+    max-width: 50%;
+    text-align: center;
+    margin: auto;
+
+    font-size: $font-size-medium;
+
+    .rooms.label {
+        font-size: $font-size-medium;
+        color: $marian-blue;
+    }
+
+    .rooms.no.label {
+        color: $cordovan;
+        font-size: $font-size-medium;
+    }
+
+}
+
+.join-room {
+    max-width: 50%;
+    text-align: center;
+    margin: auto;
+
+    label {
+        font-size: $font-size-medium;
+        color: $marian-blue;
+    }
+
+    .rooms.input {
+        margin-bottom: 20px;
+        padding-right: 0px;
+        padding-left: 0px;
+    
+        button {
+            background-color: $sandy-brown;
+        }
+    }
+}
+
+.chatroom {
+    
+    label {
+        font-size: $font-size-medium;
+        color: $marian-blue;
+    }
+
+    .content {
+        border: 1px solid black;
+        min-height: 250px;
+        max-height: 250px;
+        overflow-y: scroll;
+
+        .message {
+
+            .from {
+                font-weight: bold;
+                color: $black;
+                float: left;
+                clear: left;
+                margin-left: 5px;
+                margin-right: 5px;
+            }
+
+            .msg {
+                font-weight: 500;
+                color: $dark-gray;
+                margin-left: 5px;
+            }
+
+            .no-from.msg {
+                font-style: italic;
+                color: $notice;
+            }
+        }
+    }
+
+    .form {
+        margin-top: 20px;
+
+        .input {
+            width: 80%;
+        }
+
+        .button {
+            background-color: $sandy-brown;
+        }
+    }
+}
+
+.room-users {
+    
+    text-align: left;
+    margin-top: 20px;
+
+    .label {
+        font-size: $font-size-medium;
+        color: $marian-blue;
+        margin-bottom: 0;
+    }
+
+    .no.label {
+        color: $cordovan;
+        font-size: $font-size-medium;
+        margin-bottom: 0;
+    }
+
+    .users-list {
+
+        .user-item {
+            padding: 5px;
+            font-style: italic;
+            display: inline;
+        }
+    }
+
+}

@@ -1,51 +1,55 @@
 <template>
     <div>
-        <div>{{ title }}</div>
 
-        <div v-if="!userAuthenticated">
-            <label for="username">Username</label>
-            <input type="text" name="username" v-model="username">
-            <button @click="connectUser">Connect</button>
+        <div v-if="!userAuthenticated" class="login-block">
+            <div class="username label">
+                <label for="username">Username</label>
+            </div>
+            <div class="username input">
+                <input type="text" name="username" v-model="username" class="input" placeholder="Username">
+                <button @click="connectUser" class="button">Connect</button>
+            </div>
         </div>
 
-        <div v-if="userAuthenticated">
-            <p >Available rooms:</p>
-            <ul id="rooms" v-if="rooms.length">
-                <li v-for="room in rooms">
+        <div class="rooms-block" v-if="userAuthenticated">
+            <p class="rooms label">Rooms:</p>
+            <ul id="rooms" v-if="rooms.length" class="rooms list">
+                <li v-for="room in rooms" class="rooms item">
                 {{ room }}
                 </li>
             </ul>
-            <p v-else>No rooms available at the moment.</p>
+            <p class="rooms no label" v-else>No rooms available at the moment.</p>
         </div>
 
-        <div v-if="userAuthenticated">
+        <div v-if="userAuthenticated" class="join-room">
             <label for="roomId">Create a new room, or join an existing one:</label>
-            <input type="text" name="roomId" v-model="roomId">
-            <button @click="joinRoom">Join</button>
+            <div class="rooms input">
+                <input type="text" name="roomId" v-model="roomId" class="input">
+                <button @click="joinRoom" class="button">Join</button>
+            </div>
         </div>
 
-        <div v-if="joinedRoom">
-            <div id='content'></div>
+        <div v-if="joinedRoom" class="chatroom">
+            <div class="label">Chat</div>
+            <div id='content' class="content"></div>
             
             
-            <form id="messageForm" v-on:submit.prevent="sendChatMessage" >
-                <p>
-                    <textarea  v-model="message" name="message" placeholder="Enter your message..." >{{ message }}</textarea>
-                </p>
-                <p>
-                    <input type="submit" value="Send Message"  />
-                </p>
+            <form id="messageForm" v-on:submit.prevent="sendChatMessage" class="form">
+                <div>
+                    <input class="input" v-model="message" name="message" placeholder="Enter your message..." />
+                    <input class="button" type="submit" value="Send Message"  />
+                </div>
             </form>
         </div>
 
-        <div v-if="joinedRoom">
-            <p>Users in room:</p>
-            <ul id="rooms" v-if="usersInRoom.length">
-                <li v-for="user in usersInRoom">
+        <div v-if="joinedRoom" class="room-users">
+            <p class="label">Users in room:</p>
+            <ul id="rooms" v-if="usersInRoom.length" class="users-list">
+                <li v-for="user in usersInRoom" class="user-item">
                 {{ user }}
                 </li>
             </ul>
-            <p v-else>Room is empty</p>
+            <p class="no label" v-else>Room is empty</p>
         </div>
 
     </div>
@@ -173,16 +177,25 @@
             },
             displayChatMessage: function (from, message) {
                 var node = document.createElement("div");
+                node.classList.add('message');
 
                 if (from) {
-                    var nameNode = document.createElement("strong");
+                    var nameNode = document.createElement("div");
                     var nameTextNode = document.createTextNode(from + ":");
                     nameNode.appendChild(nameTextNode);
+                    nameNode.classList.add('from');
                     node.appendChild(nameNode);
                 }
-
+                
+                var messageNode = document.createElement("div");
                 var messageTextNode = document.createTextNode(message);
-                node.appendChild(messageTextNode);
+                messageNode.append(messageTextNode);
+                messageNode.classList.add('msg');
+
+                if (!from) {
+                    messageNode.classList.add('no-from');
+                }
+                node.appendChild(messageNode);
 
                 document.getElementById("content").appendChild(node);
             }

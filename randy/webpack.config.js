@@ -59,8 +59,8 @@ Encore
     .enableVueLoader()
 
     // enables Sass/SCSS support
-    //.enableSassLoader()
-
+    .enableSassLoader()
+    .addStyleEntry('Styles', './assets/styles/styles.scss')
     // uncomment if you use TypeScript
     //.enableTypeScriptLoader()
 
