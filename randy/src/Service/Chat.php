@@ -7,6 +7,8 @@ use App\Entity\ConnectedClient;
 use Ratchet\ConnectionInterface;
 use Ratchet\MessageComponentInterface;
 use App\Api\Data\ConnectedClientInterface;
+use App\Api\Data\MessageInterface;
+use App\Entity\Message;
 
 class Chat implements MessageComponentInterface {
     
@@ -17,6 +19,7 @@ class Chat implements MessageComponentInterface {
 
     private $roomManager;
     private $clientManager;
+    private $messageSender;
 
     /**
      * 
@@ -26,6 +29,7 @@ class Chat implements MessageComponentInterface {
     ) {
         $this->roomManager = new RoomManager();
         $this->clientManager = new ClientManager();
+        $this->messageSender = new MessageSender();
     }
 
     /**
@@ -102,9 +106,10 @@ class Chat implements MessageComponentInterface {
         $dataPacket = [
             'rooms' => $roomNames
         ];
+        $message = new Message($dataPacket);
 
         $clients = $this->clientManager->getClients();
-        $this->sendDataToClients($clients, $dataPacket);
+        $this->messageSender->sendToMany($message, $clients);
     }
 
     /**
@@ -129,7 +134,9 @@ class Chat implements MessageComponentInterface {
             'users' => $clientList
         ];
 
-        $this->sendDataToClients($clients, $dataPacket);
+        $message = new Message($dataPacket);
+
+        $this->messageSender->sendToMany($message, $clients);
     }
 
     /**
@@ -157,13 +164,13 @@ class Chat implements MessageComponentInterface {
 
     protected function createClient(ConnectionInterface $conn, $name)
     {
+        $exists = false;
         $client = $this->clientManager->getClientByUsername($name);
 
         if ($client) {
-            // send user already exists
+            $exists = true;
             $bytes = random_bytes(4);
             $name = $name . '_' . bin2hex($bytes); 
-            $this->sendUserExistsMessage($conn, $name);
         }
 
         $client = new ConnectedClient();
@@ -171,19 +178,24 @@ class Chat implements MessageComponentInterface {
         $client->setConnection($conn);
         $client->setName($name);
 
+        if ($exists) {
+            $this->sendUserExistsMessage($client, $name);
+        }
+
         $this->clientManager->addClient($client);
 
         return $client;
     }
 
-    private function sendUserExistsMessage(ConnectionInterface $conn, $newUsername) {
+    private function sendUserExistsMessage(ConnectedClientInterface $client, $newUsername) {
         $usersInRoom = [
             'type' => 'username_exists',
             'timestamp' => time(),
             'username' => $newUsername
         ];
 
-        return $conn->send(json_encode($usersInRoom));
+        $message = new Message($usersInRoom);
+        $this->messageSender->send($message, $client);
     }
 
     /**
@@ -195,7 +207,6 @@ class Chat implements MessageComponentInterface {
         $room = $this->roomManager->getRoomById($roomId);
         $room->addClient($client);
     }
-
 
     /**
      * @param $roomId
@@ -219,7 +230,10 @@ class Chat implements MessageComponentInterface {
 
     private function sendRoomList(ConnectedClientInterface $client) {
         $roomNames = $this->roomManager->getRoomNames();
-        $client->getConnection()->send(json_encode(['rooms' => $roomNames]));
+        $message = new Message([
+            'rooms' => $roomNames
+        ]);
+        $this->messageSender->send($message, $client);
     }
 
     /**
@@ -236,9 +250,11 @@ class Chat implements MessageComponentInterface {
             'name' => $name
         );
 
+        $message = new Message($dataPacket);
+
         $clients = $this->findRoomClients($roomId);
         unset($clients[$client->getResourceId()]);
-        $this->sendDataToClients($clients, $dataPacket);
+        $this->messageSender->sendToMany($message, $clients);
 
         // send list of users in a room, when connected
         $usernames = [];
@@ -252,9 +268,9 @@ class Chat implements MessageComponentInterface {
             'users' => $usernames
         ];
 
+        $message = new Message($usersInRoom);
+        $this->messageSender->send($message, $client);
         $this->logger->info(json_encode($usersInRoom));
-
-        $client->getConnection()->send(json_encode($usersInRoom));
     }
 
     /**
@@ -264,51 +280,28 @@ class Chat implements MessageComponentInterface {
     protected function findRoomClients($roomId)
     {
         $room = $this->roomManager->getRoomById($roomId);
-        
         if ($room) {
             return $room->getClients();
         }
-
         return null;
-        
     }
 
         /**
      * @param ConnectedClientInterface $client
-     * @param $roomId
-     * @param $message
-     * @param $timestamp
+     * @param string $roomId
+     * @param string $message
+     * @param string $timestamp
      */
     protected function sendMessage(ConnectedClientInterface $client, $roomId, $message, $timestamp)
     {
-        $dataPacket = array(
-            'type'=> 'message',
-            'from'=>$client->asArray(),
-            'timestamp'=>$timestamp,
+        $message = new Message([
+            'type' => 'message',
+            'from' => $client->asArray(),
+            'timestamp' => $timestamp,
             'message' => $message
-        );
+        ]);
 
         $clients = $this->findRoomClients($roomId);
-        $this->sendDataToClients($clients, $dataPacket);
-    }
-
-        /**
-     * @param array|ConnectedClientInterface[] $clients
-     * @param array $packet
-     */
-    protected function sendDataToClients(array $clients, array $packet)
-    {
-        foreach ($clients as $client) {
-            $this->sendData($client, $packet);
-        }
-    }
-
-        /**
-     * @param ConnectedClientInterface $client
-     * @param array $packet
-     */
-    protected function sendData(ConnectedClientInterface $client, array $packet)
-    {
-        $client->getConnection()->send(json_encode($packet));
+        $this->messageSender->sendToMany($message, $clients);
     }
 }
