@@ -12,7 +12,7 @@ class RoomManager {
      */
     private $rooms;
 
-    public function __construct(array $rooms)
+    public function __construct(array $rooms = [])
     {
         $this->rooms = $rooms;
     }
