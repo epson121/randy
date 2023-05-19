@@ -30,7 +30,7 @@
         </div>
 
         <div v-if="joinedRoom" class="chatroom">
-            <div class="label">Chat</div>
+            <div class="label">Chat <span class="login-info"> (you are logged in as {{username}})</span></div>
             <div id='content' class="content"></div>
             
             
@@ -159,6 +159,8 @@
                 console.log(params);
                 this.conn.send(JSON.stringify(params));
                 this.joinedRoom = this.roomId;
+                document.getElementById("content").innerHTML = '';
+                this.displayChatMessage(null, 'You have joined ' + this.joinedRoom);
             },
             sendChatMessage: function () {
                 if (!this.message) {

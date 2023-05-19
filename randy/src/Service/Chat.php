@@ -1,11 +1,12 @@
 <?php
 namespace App\Service;
 
+use App\Entity\Room;
+use Psr\Log\LoggerInterface;
 use App\Entity\ConnectedClient;
 use Ratchet\ConnectionInterface;
 use Ratchet\MessageComponentInterface;
 use App\Api\Data\ConnectedClientInterface;
-use Psr\Log\LoggerInterface;
 
 class Chat implements MessageComponentInterface {
     
@@ -14,20 +15,21 @@ class Chat implements MessageComponentInterface {
     const ACTION_USER_JOINED_ROOM = 'joined';
     const ACTION_MESSAGE_RECEIVED = 'message';
 
-    private $clients;
-    private $rooms;    
+    private $clients;  
+    private $roomManager;
 
     /**
      * 
      */
-    public function __construct(private LoggerInterface $logger) {
+    public function __construct(
+        private LoggerInterface $logger
+    ) {
         $this->clients = [];
-        $this->rooms = [];
+        $this->roomManager = new RoomManager([]);
     }
 
     public function onOpen(ConnectionInterface $conn) {
         $this->logger->info("New Connection! ({$conn->resourceId})");
-        // $roomNames = array_keys($this->rooms);
         // $conn->send(json_encode(['rooms' => $roomNames]));
     }
 
@@ -60,9 +62,9 @@ class Chat implements MessageComponentInterface {
                     $this->sendUserUpdates($roomId);
                     
                     if (isset($msg['oldRoomId'])) {
-                        unset($this->rooms[$msg['oldRoomId']][$client->getResourceId()]);
+                        $this->roomManager->removeUserFromRoom($client, $msg['oldRoomId']);
                         $this->sendUserUpdates($msg['oldRoomId'], true);
-                        // send user left message?
+                        // todo send user left message?
                     }
                     break;
                 case self::ACTION_MESSAGE_RECEIVED:
@@ -90,7 +92,7 @@ class Chat implements MessageComponentInterface {
     }
 
     private function sendRoomUpdates() {
-        $roomNames = array_keys($this->rooms);
+        $roomNames = $this->roomManager->getRoomNames();
 
         $dataPacket = [
             'rooms' => $roomNames
@@ -99,8 +101,15 @@ class Chat implements MessageComponentInterface {
         $this->sendDataToClients($this->clients, $dataPacket);
     }
 
-    private function sendUserUpdates($roomId, $clean = false) {
-        $clients = $this->rooms[$roomId];
+    private function sendUserUpdates($roomId) {
+        $room = $this->roomManager->getRoomById($roomId);
+        
+        if (!$room) {
+            throw new \Exception('Cant send updates. No room id exists');
+        }
+        
+        $clients = $room->getClients();
+        
         $clientList = [];
         foreach ($clients as $k => $client) {
             $clientList[] = $client->getName();
@@ -158,13 +167,13 @@ class Chat implements MessageComponentInterface {
      */
     protected function findClientRoom(ConnectedClientInterface $client)
     {
-        foreach ($this->rooms AS $roomId=>$roomClients) {
-            if (isset($roomClients[$client->getResourceId()])) {
-                return $roomId;
-            }
+        $room = $this->roomManager->findRoomByClient($client);
+
+        if (!$room) {
+            throw new \Exception($client->getResourceId());
         }
 
-        throw new \Exception($client->getResourceId());
+        return $room->getId();
     }
 
     protected function createClient(ConnectionInterface $conn, $name)
@@ -204,7 +213,8 @@ class Chat implements MessageComponentInterface {
      */
     protected function connectUserToRoom(ConnectedClientInterface $client, $roomId)
     {
-        $this->rooms[$roomId][$client->getResourceId()] = $client;
+        $room = $this->roomManager->getRoomById($roomId);
+        $room->addClient($client);
     }
 
 
@@ -215,16 +225,22 @@ class Chat implements MessageComponentInterface {
     protected function makeRoom($roomId)
     {
         $this->logger->info("Creating a room {$roomId}");
-        if (!isset($this->rooms[$roomId])) {
+
+        // todo
+        $room = $this->roomManager->getRoomById($roomId);
+        if (!$room) {
             $this->logger->info('Room does not exist');
-            $this->rooms[$roomId] = [];
+            $room = new Room();
+            $room->setId($roomId);
+            $room->setName($roomId);
+            $this->roomManager->addRoom($room);
         }
         
-        return $roomId;
+        return $room->getId();
     }
 
     private function sendRoomList(ConnectedClientInterface $client) {
-        $roomNames = array_keys($this->rooms);
+        $roomNames = $this->roomManager->getRoomNames();
         $client->getConnection()->send(json_encode(['rooms' => $roomNames]));
     }
 
@@ -269,7 +285,14 @@ class Chat implements MessageComponentInterface {
      */
     protected function findRoomClients($roomId)
     {
-        return $this->rooms[$roomId];
+        $room = $this->roomManager->getRoomById($roomId);
+        
+        if ($room) {
+            return $room->getClients();
+        }
+
+        return null;
+        
     }
 
         /**

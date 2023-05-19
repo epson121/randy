@@ -9,13 +9,6 @@ use Symfony\Component\Routing\Annotation\Route;
 class AppController extends AbstractController
 {
 
-    // #[Route('/'), name: 'homepage']
-    // public function index(): Response {
-    //     return $this->render('home.html.twig', [
-    //         'wss_base_url' => $wssBaseUrl
-    //     ]);
-    // }
-
     #[Route('/', name: 'homepage')]
     public function chat(
         string $wssBaseUrl
