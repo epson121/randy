@@ -163,7 +163,10 @@
                 console.log(params);
                 this.conn.send(JSON.stringify(params));
                 this.joinedRoom = this.roomId;
-                document.getElementById("content").innerHTML = '';
+                var contentEl = document.getElementById("content");
+                if (contentEl) {
+                    contentEl.innerHTML = '';
+                }
                 this.displayChatMessage(null, 'You have joined ' + this.joinedRoom);
             },
             sendChatMessage: function () {
@@ -203,7 +206,10 @@
                 }
                 node.appendChild(messageNode);
 
-                document.getElementById("content").appendChild(node);
+                var contentEl = document.getElementById("content");
+                if (contentEl) {
+                    contentEl.appendChild(node);
+                }
             }
         }
     }

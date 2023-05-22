@@ -2,13 +2,16 @@
 namespace App\Service;
 
 use App\Entity\Room;
+use App\Entity\Message;
 use Psr\Log\LoggerInterface;
 use App\Entity\ConnectedClient;
 use Ratchet\ConnectionInterface;
 use Ratchet\MessageComponentInterface;
+use App\Entity\Message\RoomListMessage;
+use App\Entity\Message\UserLeftMessage;
 use App\Api\Data\ConnectedClientInterface;
-use App\Api\Data\MessageInterface;
-use App\Entity\Message;
+use App\Entity\Message\UserConnectedMessage;
+use App\Entity\Message\UsernameExistsMessage;
 
 class Chat implements MessageComponentInterface {
     
@@ -34,7 +37,7 @@ class Chat implements MessageComponentInterface {
     /**
      * Handle various message types, and perform appropriate actions
      */
-    public function onMessage(ConnectionInterface $from, $msg) {
+    public function onMessage(ConnectionInterface $connection, $msg) {
         
         $this->logger->info("New message received: $msg");
         $msg = json_decode($msg, true);
@@ -42,44 +45,46 @@ class Chat implements MessageComponentInterface {
         try {
             switch ($msg['action']) {
                 case self::ACTION_USERNAME_AUTH:
-                    $client = $this->createClient($from, $msg['username']);
+                    $client = $this->createClient($connection, $msg['username']);
                     $this->sendRoomList($client);
                     break;
                 case self::ACTION_USER_CONNECTED:
                     $roomId = $this->makeRoom($msg['roomId']);
-                    $client = $this->clientManager->getClientByResourceId($from->resourceId);
+                    $client = $this->clientManager->getClientByResourceId($connection->resourceId);
                     
                     if (!$client) {
                         $this->logger->info("Client does not exist");
-                        $from->close();
+                        $connection->close();
                         break;
                     }
 
                     $this->logger->info("{$client->getName()} connected to room $roomId");
                     $this->connectUserToRoom($client, $roomId);
-                    $this->sendUserConnectedMessage($client, $roomId);
-                    $this->sendRoomUpdates();
-                    $this->sendUserUpdates($roomId);
                     
                     if (isset($msg['oldRoomId'])) {
-                        $this->roomManager->removeUserFromRoom($client, $msg['oldRoomId']);
-                        $this->sendUserUpdates($msg['oldRoomId']);
-                        $this->sendUserLeft($client->getName(), $msg['oldRoomId']);
-                        // todo send user left message?
+                        $this->removeUserFromRoom($client, $msg['oldRoomId']);
                     }
                     break;
                 case self::ACTION_MESSAGE_RECEIVED:
-                    $client = $this->clientManager->getClientByResourceId($from->resourceId);
-                    $roomId = $this->findClientRoom($client);
-                    $msg['timestamp'] = isset($msg['timestamp']) ? $msg['timestamp'] : time();
-                    $this->sendMessage($client, $roomId, $msg['message'], $msg['timestamp']);
+                    $this->processMessage($connection, $msg);
                     break;
             }
         } catch (\Exception $e) {
             $this->logger->error($e->getMessage());
             $this->logger->error($e->getTraceAsString());
         }
+    }
+
+    /**
+     * Process received message
+     */
+    private function processMessage(ConnectionInterface $connection, array $message) {
+        $client = $this->clientManager->getClientByResourceId($connection->resourceId);
+        $roomId = $this->findClientRoom($client);
+
+        $msg['timestamp'] = isset($message['timestamp']) ? $message['timestamp'] : time();
         
+        $this->sendMessage($client, $roomId, $message['message'], $message['timestamp']);
     }
 
     /**
@@ -91,18 +96,20 @@ class Chat implements MessageComponentInterface {
     }
 
     /**
-     * Send room list to all users
+     * Send list of rooms available
      */
-    private function sendRoomUpdates() {
+    private function sendRoomList(ConnectedClientInterface $client = null) {
         $roomNames = $this->roomManager->getRoomNames();
-
-        $dataPacket = [
+        $message = new RoomListMessage([
             'rooms' => $roomNames
-        ];
-        $message = new Message($dataPacket);
+        ]);
 
-        $clients = $this->clientManager->getClients();
-        $this->messageSender->sendToMany($message, $clients);
+        if ($client) {
+            $this->messageSender->send($message, $client);
+        } else {
+            $clients = $this->clientManager->getClients();
+            $this->messageSender->sendToMany($message, $clients);
+        }
     }
 
     /**
@@ -122,7 +129,7 @@ class Chat implements MessageComponentInterface {
             'message' => "$name left"
         ];
 
-        $message = new Message($dataPacket);
+        $message = new UserLeftMessage($dataPacket);
 
         $this->messageSender->sendToMany($message, $clients);
     }
@@ -167,7 +174,7 @@ class Chat implements MessageComponentInterface {
      * @param ConnectedClientInterface $client
      * @return int|string
      */
-    protected function findClientRoom(ConnectedClientInterface $client)
+    private function findClientRoom(ConnectedClientInterface $client)
     {
         $room = $this->roomManager->findRoomByClient($client);
 
@@ -178,7 +185,10 @@ class Chat implements MessageComponentInterface {
         return $room->getId();
     }
 
-    protected function createClient(ConnectionInterface $conn, $name)
+    /**
+     * Create a new client object
+     */
+    private function createClient(ConnectionInterface $conn, $name)
     {
         $exists = false;
         $client = $this->clientManager->getClientByUsername($name);
@@ -203,14 +213,17 @@ class Chat implements MessageComponentInterface {
         return $client;
     }
 
+    /**
+     * Send UsernameExistsMessage
+     */
     private function sendUserExistsMessage(ConnectedClientInterface $client, $newUsername) {
-        $usersInRoom = [
+        $usernameExists = [
             'type' => 'username_exists',
             'timestamp' => time(),
             'username' => $newUsername
         ];
 
-        $message = new Message($usersInRoom);
+        $message = new UsernameExistsMessage($usernameExists);
         $this->messageSender->send($message, $client);
     }
 
@@ -218,17 +231,37 @@ class Chat implements MessageComponentInterface {
      * @param ConnectedClientInterface $client
      * @param $roomId
      */
-    protected function connectUserToRoom(ConnectedClientInterface $client, $roomId)
+    private function connectUserToRoom(ConnectedClientInterface $client, $roomId)
     {
         $room = $this->roomManager->getRoomById($roomId);
+        if (!$room) {
+            throw new \Exception("Can't connect to room $roomId. Room does not exist.");
+        }
+
         $room->addClient($client);
+
+        $this->sendUserConnectedMessage($client, $roomId);
+        $this->sendRoomList();
+        $this->sendUserUpdates($roomId);
+    }
+
+    /**
+     * @var ConnectedClient $client
+     * @var string $roomId
+     * Remove user from a room, and notify
+     */
+    private function removeUserFromRoom($client, $roomId) {
+        if ($this->roomManager->removeUserFromRoom($client, $roomId)) {
+            $this->sendUserUpdates($roomId);
+            $this->sendUserLeft($client->getName(), $roomId);
+        }
     }
 
     /**
      * @param $roomId
      * @return mixed
      */
-    protected function makeRoom($roomId)
+    private function makeRoom($roomId)
     {
         $this->logger->info("Creating a room {$roomId}");
 
@@ -244,56 +277,32 @@ class Chat implements MessageComponentInterface {
         return $room->getId();
     }
 
-    private function sendRoomList(ConnectedClientInterface $client) {
-        $roomNames = $this->roomManager->getRoomNames();
-        $message = new Message([
-            'rooms' => $roomNames
-        ]);
-        $this->messageSender->send($message, $client);
-    }
-
     /**
      * @param ConnectedClientInterface $client
      * @param $roomId
      */
-    protected function sendUserConnectedMessage(ConnectedClientInterface $client, $roomId)
+    private function sendUserConnectedMessage(ConnectedClientInterface $client, $roomId)
     {
         $name = $client->getName();
-        $dataPacket = array(
+        $dataPacket = [
             'type'=> 'connected',
             'timestamp'=>time(),
             'message'=> "Welcome $name",
             'name' => $name
-        );
+        ];
 
-        $message = new Message($dataPacket);
+        $message = new UserConnectedMessage($dataPacket);
 
         $clients = $this->findRoomClients($roomId);
         unset($clients[$client->getResourceId()]);
         $this->messageSender->sendToMany($message, $clients);
-
-        // send list of users in a room, when connected
-        $usernames = [];
-        foreach ($clients as $c) {
-            $usernames[] = $c->getName();
-        }
-
-        $usersInRoom = [
-            'type' => 'users',
-            'timestamp' => time(),
-            'users' => $usernames
-        ];
-
-        $message = new Message($usersInRoom);
-        $this->messageSender->send($message, $client);
-        $this->logger->info(json_encode($usersInRoom));
     }
 
     /**
      * @param $roomId
      * @return array|ConnectedClientInterface[]
      */
-    protected function findRoomClients($roomId)
+    private function findRoomClients($roomId)
     {
         $room = $this->roomManager->getRoomById($roomId);
         if ($room) {
@@ -308,7 +317,7 @@ class Chat implements MessageComponentInterface {
      * @param string $message
      * @param string $timestamp
      */
-    protected function sendMessage(ConnectedClientInterface $client, $roomId, $message, $timestamp)
+    private function sendMessage(ConnectedClientInterface $client, $roomId, $message, $timestamp)
     {
         $message = new Message([
             'type' => 'message',
