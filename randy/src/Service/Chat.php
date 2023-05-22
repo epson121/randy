@@ -14,7 +14,6 @@ class Chat implements MessageComponentInterface {
     
     const ACTION_USERNAME_AUTH = 'user_auth';
     const ACTION_USER_CONNECTED = 'connect';
-    const ACTION_USER_JOINED_ROOM = 'joined';
     const ACTION_MESSAGE_RECEIVED = 'message';
 
     public function __construct(
@@ -64,7 +63,8 @@ class Chat implements MessageComponentInterface {
                     
                     if (isset($msg['oldRoomId'])) {
                         $this->roomManager->removeUserFromRoom($client, $msg['oldRoomId']);
-                        $this->sendUserUpdates($msg['oldRoomId'], true);
+                        $this->sendUserUpdates($msg['oldRoomId']);
+                        $this->sendUserLeft($client->getName(), $msg['oldRoomId']);
                         // todo send user left message?
                     }
                     break;
@@ -104,6 +104,29 @@ class Chat implements MessageComponentInterface {
         $clients = $this->clientManager->getClients();
         $this->messageSender->sendToMany($message, $clients);
     }
+
+    /**
+     * Send updated user list to all users in a room
+     */
+    private function sendUserLeft($name, $roomId) {
+        $room = $this->roomManager->getRoomById($roomId);
+        
+        if (!$room) {
+            throw new \Exception('Cant send updates. No room id exists');
+        }
+        
+        $clients = $room->getClients();
+
+        $dataPacket = [
+            'type' => 'user_left',
+            'message' => "$name left"
+        ];
+
+        $message = new Message($dataPacket);
+
+        $this->messageSender->sendToMany($message, $clients);
+    }
+
 
     /**
      * Send updated user list to all users in a room

@@ -119,6 +119,10 @@
                         console.log(self.usersInRoom);
                         self.usersInRoom = self.usersInRoom.concat(data.users);
                     }
+
+                    if (data.hasOwnProperty('type') && data.type == 'user_left' && data.hasOwnProperty('message')) {
+                        self.displayChatMessage(null, data.message);
+                    }
                 };
 
                 this.conn.onclose = function(e) {
