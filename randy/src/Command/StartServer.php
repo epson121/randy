@@ -18,6 +18,7 @@ class StartServer extends Command
 
     public function __construct(
         private LoggerInterface $chatServerLogger,
+        private Chat $chat,
         private string $sslKeyPath,
         private string $sslCertPath,
         string $name = null
@@ -30,7 +31,7 @@ class StartServer extends Command
         $this->chatServerLogger->info('Starting server.');
         $app = new \Ratchet\Http\HttpServer(
             new \Ratchet\WebSocket\WsServer(
-                new Chat($this->chatServerLogger)
+                $this->chat
             )
         );
         

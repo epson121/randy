@@ -17,19 +17,12 @@ class Chat implements MessageComponentInterface {
     const ACTION_USER_JOINED_ROOM = 'joined';
     const ACTION_MESSAGE_RECEIVED = 'message';
 
-    private $roomManager;
-    private $clientManager;
-    private $messageSender;
-
-    /**
-     * 
-     */
     public function __construct(
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private ClientManager $clientManager,
+        private MessageSender $messageSender,
+        private RoomManager $roomManager
     ) {
-        $this->roomManager = new RoomManager();
-        $this->clientManager = new ClientManager();
-        $this->messageSender = new MessageSender();
     }
 
     /**
@@ -286,7 +279,7 @@ class Chat implements MessageComponentInterface {
         return null;
     }
 
-        /**
+    /**
      * @param ConnectedClientInterface $client
      * @param string $roomId
      * @param string $message
