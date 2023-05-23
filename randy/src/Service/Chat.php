@@ -80,7 +80,7 @@ class Chat implements MessageComponentInterface {
      */
     private function processMessage(ConnectionInterface $connection, array $message) {
         $client = $this->clientManager->getClientByResourceId($connection->resourceId);
-        $roomId = $this->findClientRoom($client);
+        $roomId = $this->getClientRoomId($client);
 
         $msg['timestamp'] = isset($message['timestamp']) ? $message['timestamp'] : time();
         
@@ -92,7 +92,10 @@ class Chat implements MessageComponentInterface {
      */
     public function onClose(ConnectionInterface $conn) {
         $this->logger->info("Connection {$conn->resourceId} has disonnected");  
+        $client = $this->clientManager->getClientByResourceId($conn->resourceId);
+        $roomId = $this->getClientRoomId($client);
         $this->clientManager->removeClientByResourceId($conn->resourceId);
+        $this->removeUserFromRoom($client, $roomId);
     }
 
     /**
@@ -174,7 +177,7 @@ class Chat implements MessageComponentInterface {
      * @param ConnectedClientInterface $client
      * @return int|string
      */
-    private function findClientRoom(ConnectedClientInterface $client)
+    private function getClientRoomId(ConnectedClientInterface $client)
     {
         $room = $this->roomManager->findRoomByClient($client);
 

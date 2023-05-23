@@ -8,5 +8,5 @@ interface MessageInterface {
 
     public function getData(): array;
     
-    public function getJsonData(): string;
+    public function getJsonData(): string; 
 }

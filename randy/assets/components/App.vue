@@ -31,7 +31,7 @@
 
         <div v-if="joinedRoom" class="chatroom">
             <div class="label">Chat <span class="login-info"> (you are logged in as {{username}})</span></div>
-            <div id='content' class="content"></div>
+            <div id='content' class="content" ref="content"></div>
             
             
             <form id="messageForm" v-on:submit.prevent="sendChatMessage" class="form">
@@ -106,11 +106,11 @@
                     }
 
                     if (data.hasOwnProperty('message') && data.hasOwnProperty('from')) {
-                        self.displayChatMessage(data.from.name, data.message);
+                        self.displayChatMessage(data.message, data.from.name);
                     }
                     
                     if (data.hasOwnProperty('message') && data.hasOwnProperty('type') && data.type == 'connected') {
-                        self.displayChatMessage(null, data.message);
+                        self.displayChatMessage(data.message);
                         self.usersInRoom.push(data.name);
                     }
 
@@ -121,7 +121,7 @@
                     }
 
                     if (data.hasOwnProperty('type') && data.type == 'user_left' && data.hasOwnProperty('message')) {
-                        self.displayChatMessage(null, data.message);
+                        self.displayChatMessage(data.message);
                     }
                 };
 
@@ -163,11 +163,11 @@
                 console.log(params);
                 this.conn.send(JSON.stringify(params));
                 this.joinedRoom = this.roomId;
-                var contentEl = document.getElementById("content");
+                var contentEl = this.$refs.content;
                 if (contentEl) {
                     contentEl.innerHTML = '';
                 }
-                this.displayChatMessage(null, 'You have joined ' + this.joinedRoom);
+                this.displayChatMessage('You have joined ' + this.joinedRoom);
             },
             sendChatMessage: function () {
                 if (!this.message) {
@@ -184,7 +184,7 @@
 
                 this.message = '';
             },
-            displayChatMessage: function (from, message) {
+            displayChatMessage: function (message, from) {
                 var node = document.createElement("div");
                 node.classList.add('message');
 
@@ -206,7 +206,7 @@
                 }
                 node.appendChild(messageNode);
 
-                var contentEl = document.getElementById("content");
+                var contentEl = this.$refs.content;
                 if (contentEl) {
                     contentEl.appendChild(node);
                 }
