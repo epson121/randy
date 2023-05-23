@@ -35,9 +35,13 @@
             
             
             <form id="messageForm" v-on:submit.prevent="sendChatMessage" class="form">
-                <div>
-                    <input class="input" v-model="message" name="message" placeholder="Enter your message..." />
-                    <input class="button" type="submit" value="Send Message"  />
+                <div class="relative">
+                    <input class="input" v-model="message" name="message" placeholder="Enter your message..." ref="message"/>
+                    <button class="button" type="emoji" @click="toggleEmojiPicker">&#128512;</button>
+                    <div v-bind:class="{ hidden: !showEmojiPicker}" class="emoji-container" ref="emojiPicker">
+                        <VEmojiPicker @select="selectEmoji" />
+                    </div>
+                    <input class="button" type="submit" value="Send Message" />
                 </div>
             </form>
         </div>
@@ -56,6 +60,7 @@
 </template>
 
 <script>
+    
     export default {
         name: "app",
         data() {
@@ -69,7 +74,8 @@
                 roomId: null,
                 rooms: [],
                 usersInRoom: [],
-                joinedRoom: null
+                joinedRoom: null,
+                showEmojiPicker: false
             }
         },
         mounted() {
@@ -210,9 +216,18 @@
                 if (contentEl) {
                     contentEl.appendChild(node);
                 }
+            },
+            toggleEmojiPicker(val) {
+                this.showEmojiPicker = this.showEmojiPicker ? false : true;
+            },
+            selectEmoji(emoji) {
+                console.log(emoji)
+                this.message = this.message + emoji.data;
             }
         }
     }
+
+
 </script>
 
 <style scoped>

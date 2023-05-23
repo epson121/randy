@@ -15,6 +15,10 @@ import './bootstrap';
 import Vue from 'vue';
 import App from './components/App'
 
+import VEmojiPicker from "v-emoji-picker";
+
+Vue.use(VEmojiPicker)
+
 /**
 * Create a fresh Vue Application instance
 */

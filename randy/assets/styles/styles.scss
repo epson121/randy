@@ -89,6 +89,15 @@ html, body {
         font-size: $font-size-medium;
     }
 
+    .rooms.list {
+
+        .rooms.item {
+            padding: 5px;
+            font-style: italic;
+            display: inline;
+        }
+    }
+
 }
 
 .join-room {
@@ -159,7 +168,7 @@ html, body {
         margin-top: 20px;
 
         .input {
-            width: 80%;
+            width: 75%;
         }
 
         .button {
@@ -193,5 +202,18 @@ html, body {
             display: inline;
         }
     }
+}
 
+.emoji-container {
+    right: 0;
+    position: absolute;
+    bottom: 42px;
+}
+
+.hidden {
+    display: none;
+}
+
+.relative {
+    position: relative;
 }
